@@ -15,6 +15,10 @@
       --thin:1px;
       --bg:#fafafa;
       --card:#fff;
+
+      /* === 追加：オプション選択の色（淡い） === */
+      --opt-on-bg:#e6f4ea;   /* ON：淡いグリーン */
+      --opt-off-bg:#ffffff; /* OFF：白 */
     }
 
     body{
@@ -111,7 +115,7 @@
       padding-bottom:8px;
       margin-bottom:8px;
     }
-.opt-panel{
+    .opt-panel{
       border:1px solid #eee;
       border-radius:12px;
       padding:10px;
@@ -127,60 +131,76 @@
       display:flex; align-items:center; gap:8px;
     }
 
+    /* ===== トグル（スライドスイッチ） ===== */
+    .opt-row{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      cursor:pointer;
+      user-select:none;
 
-/* ===== トグル（スライドスイッチ） ===== */
-.opt-row{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  cursor:pointer;
-  user-select:none;
-  padding:4px 0;
-}
-.opt-label{
-  font-weight:700;
-  line-height:1.25;
-}
-.switch{
-  position:relative;
-  display:inline-block;
-  width:44px;
-  height:24px;
-  flex: 0 0 auto;
-}
-.switch input{
-  opacity:0;
-  width:0;
-  height:0;
-}
-.slider{
-  position:absolute;
-  cursor:pointer;
-  top:0; left:0; right:0; bottom:0;
-  background:#cfcfcf;
-  transition: .18s;
-  border-radius:999px;
-}
-.slider:before{
-  position:absolute;
-  content:"";
-  height:18px;
-  width:18px;
-  left:3px;
-  top:3px;
-  background:#fff;
-  transition: .18s;
-  border-radius:50%;
-  box-shadow: 0 1px 2px rgba(0,0,0,.25);
-}
-.switch input:checked + .slider{
-  background:#111;
-}
-.switch input:checked + .slider:before{
-  transform: translateX(20px);
-}
-.opt-row.off .opt-label{ color:#222; }
-.opt-row.on  .opt-label{ color:#111; }
+      /* === 変更：タップしやすさ＆背景色 === */
+      padding:6px 8px;
+      border-radius:10px;
+      transition: background .15s ease, box-shadow .15s ease;
+      background: var(--opt-off-bg);
+    }
+
+    /* === 追加：ON/OFFで背景色を切り替え === */
+    .opt-row.on{
+      background: var(--opt-on-bg);
+      box-shadow: 0 0 0 1px rgba(0,0,0,.06) inset;
+    }
+    .opt-row.off{
+      background: var(--opt-off-bg);
+    }
+
+    .opt-label{
+      font-weight:700;
+      line-height:1.25;
+    }
+    .switch{
+      position:relative;
+      display:inline-block;
+      width:44px;
+      height:24px;
+      flex: 0 0 auto;
+    }
+    .switch input{
+      opacity:0;
+      width:0;
+      height:0;
+    }
+    .slider{
+      position:absolute;
+      cursor:pointer;
+      top:0; left:0; right:0; bottom:0;
+      background:#cfcfcf;
+      transition: .18s;
+      border-radius:999px;
+    }
+    .slider:before{
+      position:absolute;
+      content:"";
+      height:18px;
+      width:18px;
+      left:3px;
+      top:3px;
+      background:#fff;
+      transition: .18s;
+      border-radius:50%;
+      box-shadow: 0 1px 2px rgba(0,0,0,.25);
+    }
+    .switch input:checked + .slider{
+      background:#111;
+    }
+    .switch input:checked + .slider:before{
+      transform: translateX(20px);
+    }
+
+    /* 文字色は既存維持（必要なら調整可） */
+    .opt-row.off .opt-label{ color:#222; }
+    .opt-row.on  .opt-label{ color:#111; }
 
     .neg{ color:#b00000; }
     .neg-input{ color:#b00000; }
@@ -251,17 +271,16 @@
       min-width: 115mm;
     }
 
-    /* ===== 精研欄（今回の最適化ポイント） ===== */
+    /* ===== 精研欄 ===== */
     .issuer{
       border: var(--thin) solid var(--border);
-      padding: 3mm 3mm 3mm 2mm; /* 左だけ少し詰める */
+      padding: 3mm 3mm 3mm 2mm;
       box-sizing: border-box;
       font-size: 11px;
       position: relative;
     }
-    /* 文字ブロックをラップし、印鑑分の逃げを確保 */
     .issuer-text{
-      margin-right: 22mm; /* 印鑑スペース */
+      margin-right: 22mm;
     }
 
     .issuer-name{
@@ -271,11 +290,11 @@
     }
     .issuer .rowline{
       display:flex;
-      gap: 3px; /* 詰める */
+      gap: 3px;
       white-space: nowrap;
       margin: 0.8mm 0;
     }
-    .issuer .k{ width: 10mm; font-weight:700; } /* 〒/TEL/FAXを寄せる */
+    .issuer .k{ width: 10mm; font-weight:700; }
     .issuer .v{ flex: 1; white-space: normal; }
 
     .issuer .tantou{
@@ -701,136 +720,136 @@
 
   // ====== UI生成 ======
   function buildOptionUI(){
-  const wrap = document.getElementById('optList');
-  wrap.innerHTML = '';
+    const wrap = document.getElementById('optList');
+    wrap.innerHTML = '';
 
-  const h1 = document.createElement('div'); h1.className='muted'; h1.textContent='選択';
-  const h2 = document.createElement('div'); h2.className='muted price'; h2.textContent='単価';
-  const h3 = document.createElement('div'); h3.className='muted'; h3.textContent='数量';
-  wrap.appendChild(h1); wrap.appendChild(h2); wrap.appendChild(h3);
+    const h1 = document.createElement('div'); h1.className='muted'; h1.textContent='選択';
+    const h2 = document.createElement('div'); h2.className='muted price'; h2.textContent='単価';
+    const h3 = document.createElement('div'); h3.className='muted'; h3.textContent='数量';
+    wrap.appendChild(h1); wrap.appendChild(h2); wrap.appendChild(h3);
 
-  // 共通：行タップで切替（スイッチ自体の操作は邪魔しない）
-  const attachRowToggle = (rowEl, checkboxEl, qtyEl)=>{
-    const sync = ()=>{
-      rowEl.classList.toggle('on', checkboxEl.checked);
-      rowEl.classList.toggle('off', !checkboxEl.checked);
-    };
-    sync();
-
-    checkboxEl.addEventListener('change', ()=>{
-      if(qtyEl) qtyEl.disabled = !checkboxEl.checked;
+    // 共通：行タップで切替（スイッチ自体の操作は邪魔しない）
+    const attachRowToggle = (rowEl, checkboxEl, qtyEl)=>{
+      const sync = ()=>{
+        rowEl.classList.toggle('on', checkboxEl.checked);
+        rowEl.classList.toggle('off', !checkboxEl.checked);
+      };
       sync();
+
+      checkboxEl.addEventListener('change', ()=>{
+        if(qtyEl) qtyEl.disabled = !checkboxEl.checked;
+        sync();
+        applyAndRender();
+      });
+
+      rowEl.addEventListener('click', (e)=>{
+        // スイッチ/入力を直接触った場合は通常挙動に任せる
+        if(e.target.closest('input') || e.target.closest('label.switch') || e.target.closest('.slider')) return;
+        checkboxEl.checked = !checkboxEl.checked;
+        checkboxEl.dispatchEvent(new Event('change', { bubbles:true }));
+      });
+    };
+
+    OPTIONS.forEach(opt=>{
+      const left = document.createElement('div');
+      left.className='opt-name';
+      left.innerHTML = `
+        <div class="opt-row off" id="row_${opt.id}">
+          <label class="switch" aria-label="選択切替">
+            <input type="checkbox" id="opt_${opt.id}">
+            <span class="slider"></span>
+          </label>
+          <div class="opt-label">${opt.name}</div>
+        </div>
+      `;
+
+      const mid = document.createElement('div');
+      mid.className='price';
+      mid.textContent = yen(opt.price);
+
+      const right = document.createElement('div');
+      right.innerHTML = `<input class="qty" id="qty_${opt.id}" type="number" min="1" step="1" value="1" disabled>`;
+
+      wrap.appendChild(left);
+      wrap.appendChild(mid);
+      wrap.appendChild(right);
+
+      const row = left.querySelector(`#row_${opt.id}`);
+      const cb  = left.querySelector(`#opt_${opt.id}`);
+      const qty = right.querySelector(`#qty_${opt.id}`);
+
+      attachRowToggle(row, cb, qty);
+
+      qty.addEventListener('input', applyAndRender);
+    });
+
+    // --- その他（任意） ---
+    const leftO = document.createElement('div');
+    leftO.className='opt-name';
+    leftO.innerHTML = `
+      <div class="opt-row off" id="row_other">
+        <label class="switch" aria-label="その他 選択切替">
+          <input type="checkbox" id="opt_other">
+          <span class="slider"></span>
+        </label>
+        <div class="opt-label">その他（任意）</div>
+      </div>
+      <input id="otherName" type="text" placeholder="内容" style="width:100%; margin-top:6px;" disabled>
+    `;
+
+    const midO = document.createElement('div');
+    midO.className='price';
+    midO.innerHTML = `<input id="otherPrice" type="number" step="1000" placeholder="単価（任意）" style="width:100%;" disabled>`;
+
+    const rightO = document.createElement('div');
+    rightO.innerHTML = `<input class="qty" id="qty_other" type="number" min="1" step="1" value="1" disabled>`;
+
+    wrap.appendChild(leftO);
+    wrap.appendChild(midO);
+    wrap.appendChild(rightO);
+
+    const rowO = leftO.querySelector('#row_other');
+    const ocb = document.getElementById('opt_other');
+    const oname = document.getElementById('otherName');
+    const oprice = document.getElementById('otherPrice');
+    const oqty = document.getElementById('qty_other');
+
+    const syncOther = ()=>{
+      rowO.classList.toggle('on', ocb.checked);
+      rowO.classList.toggle('off', !ocb.checked);
+      const enabled = ocb.checked;
+      oname.disabled = !enabled;
+      oprice.disabled = !enabled;
+      oqty.disabled = !enabled;
+      if(!enabled){
+        oname.value = '';
+        oprice.value = '';
+        oqty.value = 1;
+        oprice.classList.remove('neg-input');
+      }
+    };
+    syncOther();
+
+    ocb.addEventListener('change', ()=>{
+      syncOther();
       applyAndRender();
     });
 
-    rowEl.addEventListener('click', (e)=>{
-      // スイッチ/入力を直接触った場合は通常挙動に任せる
+    rowO.addEventListener('click', (e)=>{
       if(e.target.closest('input') || e.target.closest('label.switch') || e.target.closest('.slider')) return;
-      checkboxEl.checked = !checkboxEl.checked;
-      checkboxEl.dispatchEvent(new Event('change', { bubbles:true }));
+      ocb.checked = !ocb.checked;
+      ocb.dispatchEvent(new Event('change', { bubbles:true }));
     });
-  };
 
-  OPTIONS.forEach(opt=>{
-    const left = document.createElement('div');
-    left.className='opt-name';
-    left.innerHTML = `
-      <div class="opt-row off" id="row_${opt.id}">
-        <label class="switch" aria-label="選択切替">
-          <input type="checkbox" id="opt_${opt.id}">
-          <span class="slider"></span>
-        </label>
-        <div class="opt-label">${opt.name}</div>
-      </div>
-    `;
-
-    const mid = document.createElement('div');
-    mid.className='price';
-    mid.textContent = yen(opt.price);
-
-    const right = document.createElement('div');
-    right.innerHTML = `<input class="qty" id="qty_${opt.id}" type="number" min="1" step="1" value="1" disabled>`;
-
-    wrap.appendChild(left);
-    wrap.appendChild(mid);
-    wrap.appendChild(right);
-
-    const row = left.querySelector(`#row_${opt.id}`);
-    const cb  = left.querySelector(`#opt_${opt.id}`);
-    const qty = right.querySelector(`#qty_${opt.id}`);
-
-    attachRowToggle(row, cb, qty);
-
-    qty.addEventListener('input', applyAndRender);
-  });
-
-  // --- その他（任意） ---
-  const leftO = document.createElement('div');
-  leftO.className='opt-name';
-  leftO.innerHTML = `
-    <div class="opt-row off" id="row_other">
-      <label class="switch" aria-label="その他 選択切替">
-        <input type="checkbox" id="opt_other">
-        <span class="slider"></span>
-      </label>
-      <div class="opt-label">その他（任意）</div>
-    </div>
-    <input id="otherName" type="text" placeholder="内容" style="width:100%; margin-top:6px;" disabled>
-  `;
-
-  const midO = document.createElement('div');
-  midO.className='price';
-  midO.innerHTML = `<input id="otherPrice" type="number" step="1000" placeholder="単価（任意）" style="width:100%;" disabled>`;
-
-  const rightO = document.createElement('div');
-  rightO.innerHTML = `<input class="qty" id="qty_other" type="number" min="1" step="1" value="1" disabled>`;
-
-  wrap.appendChild(leftO);
-  wrap.appendChild(midO);
-  wrap.appendChild(rightO);
-
-  const rowO = leftO.querySelector('#row_other');
-  const ocb = document.getElementById('opt_other');
-  const oname = document.getElementById('otherName');
-  const oprice = document.getElementById('otherPrice');
-  const oqty = document.getElementById('qty_other');
-
-  const syncOther = ()=>{
-    rowO.classList.toggle('on', ocb.checked);
-    rowO.classList.toggle('off', !ocb.checked);
-    const enabled = ocb.checked;
-    oname.disabled = !enabled;
-    oprice.disabled = !enabled;
-    oqty.disabled = !enabled;
-    if(!enabled){
-      oname.value = '';
-      oprice.value = '';
-      oqty.value = 1;
-      oprice.classList.remove('neg-input');
-    }
-  };
-  syncOther();
-
-  ocb.addEventListener('change', ()=>{
-    syncOther();
-    applyAndRender();
-  });
-
-  rowO.addEventListener('click', (e)=>{
-    if(e.target.closest('input') || e.target.closest('label.switch') || e.target.closest('.slider')) return;
-    ocb.checked = !ocb.checked;
-    ocb.dispatchEvent(new Event('change', { bubbles:true }));
-  });
-
-  oname.addEventListener('input', applyAndRender);
-  oprice.addEventListener('input', ()=>{
-    const v = Number(oprice.value || 0);
-    if(oprice.value && v < 0) oprice.classList.add('neg-input');
-    else oprice.classList.remove('neg-input');
-    applyAndRender();
-  });
-  oqty.addEventListener('input', applyAndRender);
-}
+    oname.addEventListener('input', applyAndRender);
+    oprice.addEventListener('input', ()=>{
+      const v = Number(oprice.value || 0);
+      if(oprice.value && v < 0) oprice.classList.add('neg-input');
+      else oprice.classList.remove('neg-input');
+      applyAndRender();
+    });
+    oqty.addEventListener('input', applyAndRender);
+  }
 
   // ====== 採番（SAI-YYYYMMDD-HHMMSS-XXXX） ======
   function pad2(n){ return String(n).padStart(2,'0'); }
@@ -843,7 +862,6 @@
     return `${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}`;
   }
   function rand4(){
-    // 0000〜ZZZZ（36進数）
     return Math.floor(Math.random()* (36**4)).toString(36).toUpperCase().padStart(4,'0');
   }
 
@@ -858,7 +876,6 @@
   }
 
   function onIssueDateChange(){
-    // 発行日変更で自動採番はしない（事故防止）
     applyAndRender();
   }
 
@@ -866,7 +883,6 @@
     const sumEl = document.getElementById('optSummary');
     if(!sumEl) return;
 
-    // チェック済みのオプション数と金額（その他含む）
     const selected = getSelectedOptions();
     let cnt = selected.length;
     let amt = 0;
@@ -891,7 +907,7 @@
 
       items.push({ name: opt.name, qty, unitPrice: opt.price });
     }
-    // その他（任意）
+
     const ocb = document.getElementById('opt_other');
     if(ocb && ocb.checked){
       const name = (document.getElementById('otherName').value || '').trim() || 'その他';
@@ -927,24 +943,16 @@
 
   function buildLineItems(){
     const lines = [];
-
-    // 本体（数量可変）
     const baseQty = Math.max(1, parseInt(document.getElementById('baseQty').value || '1', 10));
     lines.push({ name: BASE_ITEM.name, qty: baseQty, unitPrice: BASE_ITEM.unitPrice });
 
-    // 注記行（単価・金額は空欄）
     MODEL_LINES.forEach(t=> lines.push({ name: t, qty: '', unitPrice: '' }));
-
-    // 選択オプション
     getSelectedOptions().forEach(o=> lines.push(o));
-
-    // 据付費（地域）
     lines.push(getRegionItem());
 
     return lines;
   }
 
-  // ====== 宛名（御中/様） ======
   function buildToText(){
     const base = (document.getElementById('toBase').value || '').trim();
     const honor = document.getElementById('toHonorific').value;
@@ -952,7 +960,6 @@
     return `${base}　${honor}`;
   }
 
-  // ====== レンダリング ======
   function applyAndRender(){
     const region = document.getElementById('region').value;
     const other = document.getElementById('regionOtherPrice');
@@ -967,7 +974,6 @@
     const valid = document.getElementById('valid').value.trim() || '30日';
 
     const notes = document.getElementById('notes').value.trim() || '';
-
     const tantou = document.getElementById('tantouSelect').value;
 
     document.getElementById('outTo').textContent = buildToText();
@@ -1038,34 +1044,24 @@
 
   function resetAll(){
     const today = new Date();
-    // 発行日は本日で初期化（運用上の事故が少ない）
     document.getElementById('issueDate').valueAsDate = today;
-
-    // 見積番号は発行日に基づき自動生成
     document.getElementById('quoteNo').value = generateQuoteNoNow();
 
-    // デフォルトはブランク運用（ご要望どおり）
     document.getElementById('toBase').value = '';
     document.getElementById('toHonorific').value = '御中';
     document.getElementById('tantouSelect').value = '';
 
-    // 条件欄：定型は維持（必要ならここもブランクにできます）
     document.getElementById('delivery').value = '受注後 約3カ月';
     document.getElementById('place').value = '御社ご指定場所';
     document.getElementById('payment').value = '納入時 現金一括払い';
     document.getElementById('valid').value = '30日';
 
-    // 備考：ブランク
     document.getElementById('notes').value = '';
-
-    // 本体数量
     document.getElementById('baseQty').value = 1;
 
-    // 地域
     document.getElementById('region').value = 'kinki';
     document.getElementById('regionOtherPrice').value = '';
 
-    // オプションOFF
     OPTIONS.forEach(o=>{
       const cb = document.getElementById(`opt_${o.id}`);
       if(cb) cb.checked = false;
@@ -1073,7 +1069,6 @@
       if(q){ q.value = 1; q.disabled = true; }
     });
 
-    // その他（任意）OFF & クリア
     const ocb = document.getElementById('opt_other');
     const oname = document.getElementById('otherName');
     const oprice = document.getElementById('otherPrice');
@@ -1088,7 +1083,6 @@
     applyAndRender();
   }
 
-  // ====== PDF生成（ダウンロード） ======
   async function downloadPDF(){
     if(!window.html2canvas || !window.jspdf){
       alert('PDF生成（ダウンロード）はネット接続が必要です。\n「印刷 / PDF保存（推奨）」をご利用ください。');
@@ -1125,7 +1119,6 @@
     pdf.save('タジマ彩見積書.pdf');
   }
 
-  // ====== util ======
   function yen(n){
     const num = Number(n);
     if(Number.isNaN(num)) return '';
@@ -1143,7 +1136,6 @@
     return `令和 ${reiwa} 年 ${m} 月 ${day} 日`;
   }
 
-  // ====== 起動 ======
   buildOptionUI();
 
   document.getElementById('region').addEventListener('change', ()=>{ applyAndRender(); });
@@ -1162,7 +1154,6 @@
   document.getElementById('issueDate').addEventListener('change', onIssueDateChange);
   document.getElementById('baseQty').addEventListener('input', applyAndRender);
 
-  // 初期化（ブランク＋リセットボタン運用）
   resetAll();
 </script>
 
