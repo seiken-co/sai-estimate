@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>精研 見積アプリ（彩）</title>
+
+  <!-- PDFダウンロード（任意）：ネット接続がある環境なら「PDF生成」ボタンで直接PDF保存できます -->
+  <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+  <style>
+    :root{
+      --border:#333;
+      --thin:1px;
+      --bg:#fafafa;
+      --card:#fff;
+    }
+
+    body{
+      font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+      margin: 12px;
+      color:#111;
+      background: var(--bg);
+    }
+
+    /* ===== 画面：入力UI ===== */
+    .app-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:10px;
+    }
+    .app-title{
+      font-weight:900;
+      letter-spacing: .5px;
+    }
+    .app-sub{
+      font-size:12px;
+      color:#666;
+      margin-top:2px;
+    }
+
+    .toolbar{
+      display:flex; gap:8px; flex-wrap:wrap;
+      align-items:center;
+      margin-bottom:10px;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: var(--bg);
+      padding: 8px 0;
+    }
+
+    .btn{
+      border:1px solid #ddd;
+      background:#fff;
+      border-radius:10px;
+      padding:8px 10px;
+      font-size: 13px;
+      cursor:pointer;
+    }
+    .btn.primary{
+      border-color:#111;
+      font-weight:800;
+    }
+
+    .card{
+      border:1px solid #ddd; border-radius:12px;
+      background: var(--card);
+      padding:12px; margin-bottom:12px;
+      box-shadow: 0 1px 0 rgba(0,0,0,.02);
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+
+    .row{
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+    }
+
+    label{ font-size: 13px; font-weight:700; }
+    input, select, textarea{
+      font-size: 14px;
+      padding:8px 10px;
+      border:1px solid #ddd;
+      border-radius:10px;
+      background:#fff;
+    }
+
+    input[type="text"], textarea{ width: 100%; box-sizing:border-box; }
+    textarea{ min-height: 60px; }
+
+    .muted{ color:#666; font-size:12px; line-height:1.4; }
+    .price{ text-align:right; font-variant-numeric: tabular-nums; }
+    .qty{ width: 78px; }
+
+    .opt-list{
+      display:grid;
+      grid-template-columns: 1fr 120px 86px;
+      gap:6px 8px;
+      align-items:center;
+    }
+    .opt-head{
+      font-weight:900;
+      border-bottom:1px solid #eee;
+      padding-bottom:8px;
+      margin-bottom:8px;
+    }
+.opt-panel{
+      border:1px solid #eee;
+      border-radius:12px;
+      padding:10px;
+      background:#fff;
+    }
+    .opt-panel > summary{
+      cursor:pointer;
+      list-style:none;
+      user-select:none;
+    }
+    .opt-panel > summary::-webkit-details-marker{ display:none; }
+    .opt-name{
+      display:flex; align-items:center; gap:8px;
+    }
+
+
+/* ===== トグル（スライドスイッチ） ===== */
+.opt-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  cursor:pointer;
+  user-select:none;
+  padding:4px 0;
+}
+.opt-label{
+  font-weight:700;
+  line-height:1.25;
+}
+.switch{
+  position:relative;
+  display:inline-block;
+  width:44px;
+  height:24px;
+  flex: 0 0 auto;
+}
+.switch input{
+  opacity:0;
+  width:0;
+  height:0;
+}
+.slider{
+  position:absolute;
+  cursor:pointer;
+  top:0; left:0; right:0; bottom:0;
+  background:#cfcfcf;
+  transition: .18s;
+  border-radius:999px;
+}
+.slider:before{
+  position:absolute;
+  content:"";
+  height:18px;
+  width:18px;
+  left:3px;
+  top:3px;
+  background:#fff;
+  transition: .18s;
+  border-radius:50%;
+  box-shadow: 0 1px 2px rgba(0,0,0,.25);
+}
+.switch input:checked + .slider{
+  background:#111;
+}
+.switch input:checked + .slider:before{
+  transform: translateX(20px);
+}
+.opt-row.off .opt-label{ color:#222; }
+.opt-row.on  .opt-label{ color:#111; }
+
+    .neg{ color:#b00000; }
+    .neg-input{ color:#b00000; }
+
+    /* スマホ対応 */
+    @media (max-width: 980px){
+      .grid{ grid-template-columns: 1fr; }
+      .toolbar{ gap:6px; }
+    }
+
+    /* ===== 印刷：見積書エリアだけ表示 ===== */
+    @media print{
+      body{ margin:0; background:#fff; }
+      .no-print{ display:none !important; }
+      .print-area{ margin:0; padding:0; }
+    }
+
+    /* ===== 見積書（A4） ===== */
+    .print-area{
+      max-width: 210mm;
+      margin: 0 auto;
+    }
+    .paper{
+      width: 210mm;
+      min-height: 297mm;
+      padding: 10mm 12mm;
+      box-sizing: border-box;
+      background:#fff;
+    }
+
+    .header{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      align-items:center;
+      margin-bottom: 4mm;
+    }
+    .no{
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .title{
+      text-align:center;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 6px;
+    }
+    .date{
+      text-align:right;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .top-block{
+      margin-top: 4mm;
+      display:grid;
+      grid-template-columns: 1fr 68mm;
+      gap: 10mm;
+      align-items:start;
+    }
+
+    .to{ padding-top: 2mm; }
+    .to-name{
+      font-size: 21px;
+      font-weight: 800;
+      display:inline-block;
+      padding-bottom: 2mm;
+      border-bottom: var(--thin) solid var(--border);
+      min-width: 115mm;
+    }
+
+    /* ===== 精研欄（今回の最適化ポイント） ===== */
+    .issuer{
+      border: var(--thin) solid var(--border);
+      padding: 3mm 3mm 3mm 2mm; /* 左だけ少し詰める */
+      box-sizing: border-box;
+      font-size: 11px;
+      position: relative;
+    }
+    /* 文字ブロックをラップし、印鑑分の逃げを確保 */
+    .issuer-text{
+      margin-right: 22mm; /* 印鑑スペース */
+    }
+
+    .issuer-name{
+      font-weight: 900;
+      font-size: 13.5px;
+      margin-bottom: 1.5mm;
+    }
+    .issuer .rowline{
+      display:flex;
+      gap: 3px; /* 詰める */
+      white-space: nowrap;
+      margin: 0.8mm 0;
+    }
+    .issuer .k{ width: 10mm; font-weight:700; } /* 〒/TEL/FAXを寄せる */
+    .issuer .v{ flex: 1; white-space: normal; }
+
+    .issuer .tantou{
+      margin-top: 3mm;
+      border-top: 1px dashed #777;
+      padding-top: 2mm;
+      font-weight: 700;
+    }
+
+    .inkan{
+      position:absolute;
+      right: 5mm;
+      top: 5mm;
+      width: 18mm;
+      height: auto;
+      opacity: 0.95;
+    }
+
+    .greeting{
+      margin-top: 4mm;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .summary{
+      margin-top: 2mm;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      align-items:end;
+      border-top: var(--thin) solid var(--border);
+      border-bottom: var(--thin) solid var(--border);
+      padding: 2.5mm 0;
+    }
+    .sum-label{
+      font-size: 14px;
+      font-weight: 900;
+    }
+    .sum-amount{
+      text-align:right;
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .cond{
+      margin-top: 4mm;
+      border: var(--thin) solid var(--border);
+      border-collapse: collapse;
+      width:100%;
+      font-size: 12px;
+    }
+    .cond td{
+      border: var(--thin) solid var(--border);
+      padding: 2.2mm;
+      vertical-align: middle;
+    }
+    .cond .k{ width: 18mm; font-weight: 800; background:#f7f7f7; }
+    .cond .v{ width: 60mm; }
+    .cond .k2{ width: 22mm; font-weight: 800; background:#f7f7f7; }
+
+    .items{
+      margin-top: 4mm;
+      border: var(--thin) solid var(--border);
+      border-collapse: collapse;
+      width:100%;
+      font-size: 12px;
+    }
+    .items th, .items td{
+      border: var(--thin) solid var(--border);
+      padding: 2.1mm;
+    }
+    .items th{
+      background:#f7f7f7;
+      font-weight: 900;
+    }
+    .items .c-qty{ width: 12mm; text-align:center; }
+    .items .c-unit{ width: 28mm; text-align:right; }
+    .items .c-amt{ width: 28mm; text-align:right; }
+    .items .desc{ width:auto; }
+
+    .bottom{
+      margin-top: 4mm;
+      display:grid;
+      grid-template-columns: 1fr 70mm;
+      gap: 6mm;
+      align-items:start;
+    }
+    .note-box{
+      border: var(--thin) solid var(--border);
+      min-height: 36mm;
+      padding: 2.5mm;
+      box-sizing:border-box;
+      font-size: 12px;
+    }
+    .totals{
+      border: var(--thin) solid var(--border);
+      border-collapse: collapse;
+      width:100%;
+      font-size: 12px;
+    }
+    .totals td{
+      border: var(--thin) solid var(--border);
+      padding: 2.2mm;
+    }
+    .totals .k{
+      font-weight: 900;
+      background:#f7f7f7;
+      width: 28mm;
+    }
+    .totals .v{
+      text-align:right;
+      font-variant-numeric: tabular-nums;
+      font-weight: 900;
+    }
+
+    .caution{
+      margin-top: 4mm;
+      border-top: var(--thin) solid var(--border);
+      padding-top: 3mm;
+      font-size: 12px;
+    }
+    .caution .head{
+      color:#b00000;
+      font-weight: 900;
+      margin-bottom: 2mm;
+    }
+    .caution ul{
+      margin: 0;
+      padding-left: 18px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="no-print">
+    <div class="app-head">
+      <div>
+        <div class="app-title">精研 見積アプリ（彩）</div>
+        <div class="app-sub">彩専用 見積書（スマホ/タブレット運用を想定）</div>
+      </div>
+      <div class="muted" style="text-align:right">
+        目的：作成 → PDF化 → 送信
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn primary" onclick="window.print()">印刷 / PDF保存（推奨）</button>
+      <button class="btn" onclick="downloadPDF()">PDF生成（ダウンロード）</button>
+      <button class="btn" onclick="resetAll()">全入力リセット</button>
+      <button class="btn" onclick="regenQuoteNo()">見積番号を再生成</button>
+      <span class="muted">※「PDF生成」は端末/ブラウザにより品質差があります。提出用途は「印刷/PDF保存」を推奨。</span>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="row">
+          <div style="flex:1">
+            <label>宛名（会社名/氏名）</label>
+            <input id="toBase" type="text" placeholder="例：株式会社 豊建工 / 山田太郎" />
+          </div>
+          <div style="width:140px">
+            <label>敬称</label>
+            <select id="toHonorific">
+              <option value="御中">御中</option>
+              <option value="様">様</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div style="flex:1">
+            <label>見積番号（自動生成。必要なら編集可）</label>
+            <input id="quoteNo" type="text" />
+          </div>
+          <div style="width:190px">
+            <label>発行日</label>
+            <input id="issueDate" type="date" />
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div style="flex:1">
+            <label>担当者</label>
+            <select id="tantouSelect" style="width:100%">
+              <option value="" selected>選択してください</option>
+              <option value="樋口大">樋口大</option>
+              <option value="巽隆充">巽隆充</option>
+              <option value="三谷剛史">三谷剛史</option>
+              <option value="山崎迅人">山崎迅人</option>
+              <option value="與那城昭彦">與那城昭彦</option>
+              <option value="八田雅隆">八田雅隆</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div style="flex:1">
+            <label>納期</label>
+            <input id="delivery" type="text" placeholder="例：受注後 約3カ月" />
+          </div>
+          <div style="flex:1">
+            <label>受渡場所</label>
+            <input id="place" type="text" placeholder="例：御社ご指定場所" />
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div style="flex:1">
+            <label>支払条件</label>
+            <input id="payment" type="text" placeholder="例：納入時 現金一括払い" />
+          </div>
+          <div style="flex:1">
+            <label>見積有効期限</label>
+            <input id="valid" type="text" placeholder="例：30日" />
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div style="flex:1">
+            <label>備考（自由記入）</label>
+            <textarea id="notes" placeholder="例：本見積書の有効期限は30日です。有効期限が切れた場合は、再見積となります。"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="opt-head">本体（彩）</div>
+        <div class="row">
+          <div style="flex:1" class="muted">
+            タジマ1頭式8色刺繍機「TAJIMA彩」／単価：¥1,100,000（固定）
+          </div>
+          <div style="width:150px">
+            <label>数量</label>
+            <input id="baseQty" class="qty" type="number" min="1" step="1" value="1" />
+          </div>
+        </div>
+
+        <div class="opt-head" style="margin-top:14px">運送据付・セットアップ及び講習費用（精研直販・彩）</div>
+        <div class="row">
+          <div style="flex:1">
+            <label>地域</label>
+            <select id="region">
+              <option value="kinki">近畿（¥60,000）</option>
+              <option value="chugoku">中国（¥90,000）</option>
+              <option value="shikoku">四国（¥100,000）</option>
+              <option value="kyushu">九州（¥160,000）</option>
+              <option value="other">その他（要相談）</option>
+            </select>
+          </div>
+          <div style="width:180px">
+            <label>その他の金額（任意）</label>
+            <input id="regionOtherPrice" type="number" min="0" step="1000" placeholder="例：120000" disabled />
+            <div class="muted" style="margin-top:6px">
+              「その他」は金額空欄でもOK（要相談表示）
+            </div>
+          </div>
+        </div>
+
+        <details class="opt-panel" style="margin-top:14px">
+          <summary class="opt-head" style="margin:0">オプション（数量を全て変更可） <span id="optSummary" class="muted"></span></summary>
+          <div style="margin-top:10px" class="opt-list" id="optList"></div>
+        </details>
+
+        <div class="row" style="margin-top:12px">
+          <div style="flex:1"></div>
+          <button class="btn" onclick="applyAndRender()">明細を更新</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="opt-head">スマホ／タブレットで「PDF化 → 送信」する手順（現実的な運用）</div>
+      <div class="muted">
+        1) まず「印刷 / PDF保存」を押す（これが一番きれいに出ます）<br/>
+        2) iPhone/iPad：プレビュー画面で共有ボタン →「ファイルに保存」または「メール/LINE等へ送信」<br/>
+        3) Android：印刷先を「PDFに保存」→ 共有<br/>
+        ※ ブラウザがSafari/Chromeでも概ね同じです。
+      </div>
+    </div>
+  </div>
+
+  <!-- 印刷対象 -->
+  <div class="print-area">
+    <div class="paper" id="paper">
+      <div class="header">
+        <div class="no" id="outNo">No.SAI----</div>
+        <div class="title">御 見 積 書</div>
+        <div class="date" id="outDate">令和 -- 年 -- 月 -- 日</div>
+      </div>
+
+      <div class="top-block">
+        <div class="to">
+          <div class="to-name" id="outTo">株式会社　＿＿＿＿　御中</div>
+        </div>
+
+        <div class="issuer">
+          <img class="inkan" src="inkan.png" alt="会社印"/>
+          <div class="issuer-text">
+            <div class="issuer-name">株式会社 精研</div>
+            <div class="rowline"><div class="k">〒</div><div class="v">573-0102</div></div>
+            <div class="rowline"><div class="k"></div><div class="v">大阪府枚方市長尾家具町3-12-3</div></div>
+            <div class="rowline"><div class="k">TEL</div><div class="v">072-856-8253</div></div>
+            <div class="rowline"><div class="k">FAX</div><div class="v">072-856-8254</div></div>
+            <div class="tantou" id="outTantou">担当者　＿＿＿＿</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="greeting">下記の通り、御見積申し上げます。</div>
+
+      <div class="summary">
+        <div class="sum-label">総金額</div>
+        <div class="sum-amount" id="outGrand">¥0 -</div>
+      </div>
+
+      <table class="cond">
+        <tr>
+          <td class="k">納期</td><td class="v" id="outDelivery">受注後 約3カ月</td>
+          <td class="k2">受渡場所</td><td id="outPlace">御社ご指定場所</td>
+        </tr>
+        <tr>
+          <td class="k">支払条件</td><td class="v" id="outPayment">納入時 現金一括払い</td>
+          <td class="k2">見積有効期限</td><td id="outValid">30日</td>
+        </tr>
+      </table>
+
+      <table class="items">
+        <thead>
+          <tr>
+            <th class="desc">品名及び仕様</th>
+            <th class="c-qty">数量</th>
+            <th class="c-unit">単価</th>
+            <th class="c-amt">金額</th>
+          </tr>
+        </thead>
+        <tbody id="outItems"></tbody>
+      </table>
+
+      <div class="bottom">
+        <div class="note-box" id="outNotes"></div>
+
+        <table class="totals">
+          <tr><td class="k">小計</td><td class="v" id="outSub">0</td></tr>
+          <tr><td class="k">消費税</td><td class="v" id="outTax">0</td></tr>
+          <tr><td class="k">合計</td><td class="v" id="outTotal">0</td></tr>
+        </table>
+      </div>
+
+      <div class="caution">
+        <div class="head">【注意事項】</div>
+        <ul>
+          <li>製品保証期間は納入日より1年間です。</li>
+          <li>保証延長サービス「安心サポート」の同時加入をお勧めしております。</li>
+          <li>WriterPlusはIllustratorからのベクトルデータ取込みはできません。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ====== データ（彩専用） ======
+  const BASE_ITEM = {
+    name: 'タジマ1頭式8色刺繍機「TAJIMA彩」',
+    unitPrice: 1100000
+  };
+
+  const MODEL_LINES = [
+    '型式：MDP-S0801C(200×300)S',
+    '標準付属：袋物枠 200×300、100×100 各1個付',
+    '標準付属：データ作成ソフト「WriterPlus」',
+    '標準付属：日本語フォント（楷書体、太ゴシック体）'
+  ];
+
+  // オプション一覧（数量は全て変更可）
+  const OPTIONS = [
+    { id:'stand',   name:'脚スタンド：MDP-SC', price:137000 },
+    { id:'widecap', name:'ワイド帽子枠一式：MDP-SC', price:99000 },
+
+    { id:'tfa90',  name:'袋物枠：TFA：Φ90',  price:5000 },
+    { id:'tfa120', name:'袋物枠：TFA：Φ120', price:5000 },
+    { id:'tfa150', name:'袋物枠：TFA：Φ150', price:5000 },
+    { id:'tfa180', name:'袋物枠：TFA：Φ180', price:5000 },
+
+    { id:'pocket', name:'ポケット用クランプ枠：65×100', price:22000 },
+
+    { id:'kutsushita_bag', name:'靴下枠：袋物枠用', price:18000 },
+    { id:'kutsushita_gauge', name:'靴下枠用ゲージ：単品', price:5130 },
+
+    { id:'mstarter', name:'Mフレームスターターキット：彩', price:71000 },
+    { id:'mclip50',  name:'Mクリップ：50', price:4000 },
+    { id:'mclip100', name:'Mクリップ：100', price:6000 },
+
+    { id:'tgh3', name:'ゲージセット：TGH3', price:30000 },
+
+    { id:'shoeset', name:'靴枠セット', price:57000 },
+    { id:'hoop55', name:'フープマスター丸枠：5.5', price:57000 },
+
+    { id:'bobbin_small', name:'下糸巻装置：小型', price:28000 },
+    { id:'anshin', name:'5年間あんしん定額サポート', price:132000 },
+
+    { id:'bag100', name:'袋物枠100×100（標準装備タイプ）', price:7000 },
+    { id:'bag200', name:'袋物枠200×300（標準装備タイプ）', price:7000 },
+
+    { id:'lan_add', name:'LAN刺繍機接続ライセンス 追加2台目以降', price:18000 },
+
+    { id:'wp_font_a', name:'Writerplusタジマ日本語フォント セットA', price:68000 },
+    { id:'wp_font_b', name:'Writerplusタジマ日本語フォント セットB', price:68000 },
+    { id:'wp_font_c', name:'Writerplusタジマ日本語フォント セットC', price:123000 }
+  ];
+
+  // 地域別（精研直販・彩）
+  const REGION_PRICE = {
+    kinki: 60000,
+    chugoku: 90000,
+    shikoku: 100000,
+    kyushu: 160000,
+    other: null
+  };
+
+  const TAX_RATE = 0.10;
+
+  // ====== UI生成 ======
+  function buildOptionUI(){
+  const wrap = document.getElementById('optList');
+  wrap.innerHTML = '';
+
+  const h1 = document.createElement('div'); h1.className='muted'; h1.textContent='選択';
+  const h2 = document.createElement('div'); h2.className='muted price'; h2.textContent='単価';
+  const h3 = document.createElement('div'); h3.className='muted'; h3.textContent='数量';
+  wrap.appendChild(h1); wrap.appendChild(h2); wrap.appendChild(h3);
+
+  // 共通：行タップで切替（スイッチ自体の操作は邪魔しない）
+  const attachRowToggle = (rowEl, checkboxEl, qtyEl)=>{
+    const sync = ()=>{
+      rowEl.classList.toggle('on', checkboxEl.checked);
+      rowEl.classList.toggle('off', !checkboxEl.checked);
+    };
+    sync();
+
+    checkboxEl.addEventListener('change', ()=>{
+      if(qtyEl) qtyEl.disabled = !checkboxEl.checked;
+      sync();
+      applyAndRender();
+    });
+
+    rowEl.addEventListener('click', (e)=>{
+      // スイッチ/入力を直接触った場合は通常挙動に任せる
+      if(e.target.closest('input') || e.target.closest('label.switch') || e.target.closest('.slider')) return;
+      checkboxEl.checked = !checkboxEl.checked;
+      checkboxEl.dispatchEvent(new Event('change', { bubbles:true }));
+    });
+  };
+
+  OPTIONS.forEach(opt=>{
+    const left = document.createElement('div');
+    left.className='opt-name';
+    left.innerHTML = `
+      <div class="opt-row off" id="row_${opt.id}">
+        <label class="switch" aria-label="選択切替">
+          <input type="checkbox" id="opt_${opt.id}">
+          <span class="slider"></span>
+        </label>
+        <div class="opt-label">${opt.name}</div>
+      </div>
+    `;
+
+    const mid = document.createElement('div');
+    mid.className='price';
+    mid.textContent = yen(opt.price);
+
+    const right = document.createElement('div');
+    right.innerHTML = `<input class="qty" id="qty_${opt.id}" type="number" min="1" step="1" value="1" disabled>`;
+
+    wrap.appendChild(left);
+    wrap.appendChild(mid);
+    wrap.appendChild(right);
+
+    const row = left.querySelector(`#row_${opt.id}`);
+    const cb  = left.querySelector(`#opt_${opt.id}`);
+    const qty = right.querySelector(`#qty_${opt.id}`);
+
+    attachRowToggle(row, cb, qty);
+
+    qty.addEventListener('input', applyAndRender);
+  });
+
+  // --- その他（任意） ---
+  const leftO = document.createElement('div');
+  leftO.className='opt-name';
+  leftO.innerHTML = `
+    <div class="opt-row off" id="row_other">
+      <label class="switch" aria-label="その他 選択切替">
+        <input type="checkbox" id="opt_other">
+        <span class="slider"></span>
+      </label>
+      <div class="opt-label">その他（任意）</div>
+    </div>
+    <input id="otherName" type="text" placeholder="内容" style="width:100%; margin-top:6px;" disabled>
+  `;
+
+  const midO = document.createElement('div');
+  midO.className='price';
+  midO.innerHTML = `<input id="otherPrice" type="number" step="1000" placeholder="単価（任意）" style="width:100%;" disabled>`;
+
+  const rightO = document.createElement('div');
+  rightO.innerHTML = `<input class="qty" id="qty_other" type="number" min="1" step="1" value="1" disabled>`;
+
+  wrap.appendChild(leftO);
+  wrap.appendChild(midO);
+  wrap.appendChild(rightO);
+
+  const rowO = leftO.querySelector('#row_other');
+  const ocb = document.getElementById('opt_other');
+  const oname = document.getElementById('otherName');
+  const oprice = document.getElementById('otherPrice');
+  const oqty = document.getElementById('qty_other');
+
+  const syncOther = ()=>{
+    rowO.classList.toggle('on', ocb.checked);
+    rowO.classList.toggle('off', !ocb.checked);
+    const enabled = ocb.checked;
+    oname.disabled = !enabled;
+    oprice.disabled = !enabled;
+    oqty.disabled = !enabled;
+    if(!enabled){
+      oname.value = '';
+      oprice.value = '';
+      oqty.value = 1;
+      oprice.classList.remove('neg-input');
+    }
+  };
+  syncOther();
+
+  ocb.addEventListener('change', ()=>{
+    syncOther();
+    applyAndRender();
+  });
+
+  rowO.addEventListener('click', (e)=>{
+    if(e.target.closest('input') || e.target.closest('label.switch') || e.target.closest('.slider')) return;
+    ocb.checked = !ocb.checked;
+    ocb.dispatchEvent(new Event('change', { bubbles:true }));
+  });
+
+  oname.addEventListener('input', applyAndRender);
+  oprice.addEventListener('input', ()=>{
+    const v = Number(oprice.value || 0);
+    if(oprice.value && v < 0) oprice.classList.add('neg-input');
+    else oprice.classList.remove('neg-input');
+    applyAndRender();
+  });
+  oqty.addEventListener('input', applyAndRender);
+}
+
+  // ====== 採番（SAI-YYYYMMDD-HHMMSS-XXXX） ======
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function pad4(n){ return String(n).padStart(4,'0'); }
+
+  function yyyymmddNow(d){
+    return `${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}`;
+  }
+  function hhmmssNow(d){
+    return `${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}`;
+  }
+  function rand4(){
+    // 0000〜ZZZZ（36進数）
+    return Math.floor(Math.random()* (36**4)).toString(36).toUpperCase().padStart(4,'0');
+  }
+
+  function generateQuoteNoNow(){
+    const d = new Date();
+    return `SAI-${yyyymmddNow(d)}-${hhmmssNow(d)}-${rand4()}`;
+  }
+
+  function regenQuoteNo(){
+    document.getElementById('quoteNo').value = generateQuoteNoNow();
+    applyAndRender();
+  }
+
+  function onIssueDateChange(){
+    // 発行日変更で自動採番はしない（事故防止）
+    applyAndRender();
+  }
+
+  function updateOptionSummary(){
+    const sumEl = document.getElementById('optSummary');
+    if(!sumEl) return;
+
+    // チェック済みのオプション数と金額（その他含む）
+    const selected = getSelectedOptions();
+    let cnt = selected.length;
+    let amt = 0;
+    selected.forEach(o=>{ amt += (o.unitPrice||0) * (o.qty||1); });
+
+    if(cnt === 0){
+      sumEl.textContent = '（未選択）';
+    }else{
+      sumEl.textContent = `（選択：${cnt}件 / 合計：${yen(amt)}）`;
+    }
+  }
+
+  // ====== 明細生成 ======
+  function getSelectedOptions(){
+    const items = [];
+    for(const opt of OPTIONS){
+      const cb = document.getElementById(`opt_${opt.id}`);
+      if(!cb || !cb.checked) continue;
+
+      const q = document.getElementById(`qty_${opt.id}`);
+      const qty = Math.max(1, parseInt(q.value || '1', 10));
+
+      items.push({ name: opt.name, qty, unitPrice: opt.price });
+    }
+    // その他（任意）
+    const ocb = document.getElementById('opt_other');
+    if(ocb && ocb.checked){
+      const name = (document.getElementById('otherName').value || '').trim() || 'その他';
+      const qty = Math.max(1, parseInt(document.getElementById('qty_other').value || '1', 10));
+      const pRaw = document.getElementById('otherPrice').value;
+      const unitPrice = (pRaw === '' || pRaw === null) ? 0 : parseInt(pRaw, 10);
+      items.push({ name, qty, unitPrice });
+    }
+    return items;
+  }
+
+  function getRegionItem(){
+    const region = document.getElementById('region').value;
+    const fixed = REGION_PRICE[region];
+
+    if(fixed === null){
+      const v = document.getElementById('regionOtherPrice').value;
+      const price = v ? Math.max(0, parseInt(v,10)) : null;
+      return {
+        name: '運送据付・セットアップ及び講習費用（その他・要相談）',
+        qty: 1,
+        unitPrice: price
+      };
+    }else{
+      const mapName = { kinki:'近畿', chugoku:'中国', shikoku:'四国', kyushu:'九州' };
+      return {
+        name: `運送据付・セットアップ及び講習費用（${mapName[region]}）`,
+        qty: 1,
+        unitPrice: fixed
+      };
+    }
+  }
+
+  function buildLineItems(){
+    const lines = [];
+
+    // 本体（数量可変）
+    const baseQty = Math.max(1, parseInt(document.getElementById('baseQty').value || '1', 10));
+    lines.push({ name: BASE_ITEM.name, qty: baseQty, unitPrice: BASE_ITEM.unitPrice });
+
+    // 注記行（単価・金額は空欄）
+    MODEL_LINES.forEach(t=> lines.push({ name: t, qty: '', unitPrice: '' }));
+
+    // 選択オプション
+    getSelectedOptions().forEach(o=> lines.push(o));
+
+    // 据付費（地域）
+    lines.push(getRegionItem());
+
+    return lines;
+  }
+
+  // ====== 宛名（御中/様） ======
+  function buildToText(){
+    const base = (document.getElementById('toBase').value || '').trim();
+    const honor = document.getElementById('toHonorific').value;
+    if(!base) return `株式会社　＿＿＿＿　${honor}`;
+    return `${base}　${honor}`;
+  }
+
+  // ====== レンダリング ======
+  function applyAndRender(){
+    const region = document.getElementById('region').value;
+    const other = document.getElementById('regionOtherPrice');
+    other.disabled = region !== 'other';
+
+    const quoteNo = (document.getElementById('quoteNo').value || '').trim() || 'SAI--------';
+    const issueDate = document.getElementById('issueDate').value;
+
+    const delivery = document.getElementById('delivery').value.trim() || '受注後 約3カ月';
+    const place = document.getElementById('place').value.trim() || '御社ご指定場所';
+    const payment = document.getElementById('payment').value.trim() || '納入時 現金一括払い';
+    const valid = document.getElementById('valid').value.trim() || '30日';
+
+    const notes = document.getElementById('notes').value.trim() || '';
+
+    const tantou = document.getElementById('tantouSelect').value;
+
+    document.getElementById('outTo').textContent = buildToText();
+    document.getElementById('outNo').textContent = `No.${quoteNo}`;
+    document.getElementById('outDate').textContent = formatReiwa(issueDate);
+
+    document.getElementById('outDelivery').textContent = delivery;
+    document.getElementById('outPlace').textContent = place;
+    document.getElementById('outPayment').textContent = payment;
+    document.getElementById('outValid').textContent = valid;
+
+    document.getElementById('outTantou').textContent = `担当者　${tantou || '＿＿＿＿'}`;
+    document.getElementById('outNotes').textContent = notes;
+
+    const lines = buildLineItems();
+    const tbody = document.getElementById('outItems');
+    tbody.innerHTML = '';
+
+    let subtotal = 0;
+
+    lines.forEach(li=>{
+      const tr = document.createElement('tr');
+
+      const tdDesc = document.createElement('td');
+      tdDesc.className='desc';
+      tdDesc.textContent = li.name;
+
+      const tdQty = document.createElement('td');
+      tdQty.className='c-qty';
+      tdQty.textContent = li.qty;
+
+      const tdUnit = document.createElement('td');
+      tdUnit.className='c-unit';
+
+      const tdAmt = document.createElement('td');
+      tdAmt.className='c-amt';
+
+      if(typeof li.unitPrice === 'number'){
+        tdUnit.textContent = yen(li.unitPrice);
+        const qty = (typeof li.qty === 'number') ? li.qty : 1;
+        const amt = li.unitPrice * qty;
+        tdAmt.textContent = yen(amt);
+        if(li.unitPrice < 0) tdUnit.classList.add('neg');
+        if(amt < 0) tdAmt.classList.add('neg');
+        subtotal += amt;
+      }else{
+        tdUnit.textContent = '';
+        tdAmt.textContent = '';
+      }
+
+      tr.appendChild(tdDesc);
+      tr.appendChild(tdQty);
+      tr.appendChild(tdUnit);
+      tr.appendChild(tdAmt);
+      tbody.appendChild(tr);
+    });
+
+    const tax = Math.round(subtotal * TAX_RATE);
+    const total = subtotal + tax;
+
+    document.getElementById('outSub').textContent = yen(subtotal);
+    document.getElementById('outTax').textContent = yen(tax);
+    document.getElementById('outTotal').textContent = yen(total);
+    document.getElementById('outGrand').textContent = `${yen(total)} -`;
+
+    updateOptionSummary();
+  }
+
+  function resetAll(){
+    const today = new Date();
+    // 発行日は本日で初期化（運用上の事故が少ない）
+    document.getElementById('issueDate').valueAsDate = today;
+
+    // 見積番号は発行日に基づき自動生成
+    document.getElementById('quoteNo').value = generateQuoteNoNow();
+
+    // デフォルトはブランク運用（ご要望どおり）
+    document.getElementById('toBase').value = '';
+    document.getElementById('toHonorific').value = '御中';
+    document.getElementById('tantouSelect').value = '';
+
+    // 条件欄：定型は維持（必要ならここもブランクにできます）
+    document.getElementById('delivery').value = '受注後 約3カ月';
+    document.getElementById('place').value = '御社ご指定場所';
+    document.getElementById('payment').value = '納入時 現金一括払い';
+    document.getElementById('valid').value = '30日';
+
+    // 備考：ブランク
+    document.getElementById('notes').value = '';
+
+    // 本体数量
+    document.getElementById('baseQty').value = 1;
+
+    // 地域
+    document.getElementById('region').value = 'kinki';
+    document.getElementById('regionOtherPrice').value = '';
+
+    // オプションOFF
+    OPTIONS.forEach(o=>{
+      const cb = document.getElementById(`opt_${o.id}`);
+      if(cb) cb.checked = false;
+      const q = document.getElementById(`qty_${o.id}`);
+      if(q){ q.value = 1; q.disabled = true; }
+    });
+
+    // その他（任意）OFF & クリア
+    const ocb = document.getElementById('opt_other');
+    const oname = document.getElementById('otherName');
+    const oprice = document.getElementById('otherPrice');
+    const oqty = document.getElementById('qty_other');
+    if(ocb) ocb.checked = false;
+    if(oname) oname.value = '';
+    if(oprice) oprice.value = '';
+    if(oqty){ oqty.value = 1; oqty.disabled = true; }
+    if(oname) oname.disabled = true;
+    if(oprice) { oprice.disabled = true; oprice.classList.remove('neg-input'); }
+
+    applyAndRender();
+  }
+
+  // ====== PDF生成（ダウンロード） ======
+  async function downloadPDF(){
+    if(!window.html2canvas || !window.jspdf){
+      alert('PDF生成（ダウンロード）はネット接続が必要です。\n「印刷 / PDF保存（推奨）」をご利用ください。');
+      return;
+    }
+    applyAndRender();
+
+    const el = document.getElementById('paper');
+    const canvas = await window.html2canvas(el, { scale: 2, useCORS: true });
+    const imgData = canvas.toDataURL('image/png');
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    const pageW = 210;
+    const pageH = 297;
+
+    const imgW = pageW;
+    const imgH = canvas.height * (imgW / canvas.width);
+
+    if(imgH <= pageH){
+      pdf.addImage(imgData, 'PNG', 0, 0, imgW, imgH);
+    }else{
+      let y = 0;
+      let remaining = imgH;
+      while(remaining > 0){
+        pdf.addImage(imgData, 'PNG', 0, -y, imgW, imgH);
+        remaining -= pageH;
+        y += pageH;
+        if(remaining > 0) pdf.addPage();
+      }
+    }
+
+    pdf.save('タジマ彩見積書.pdf');
+  }
+
+  // ====== util ======
+  function yen(n){
+    const num = Number(n);
+    if(Number.isNaN(num)) return '';
+    if(num < 0) return '-¥' + Math.abs(num).toLocaleString('ja-JP');
+    return '¥' + num.toLocaleString('ja-JP');
+  }
+
+  function formatReiwa(iso){
+    if(!iso) return '令和 -- 年 -- 月 -- 日';
+    const d = new Date(iso + 'T00:00:00');
+    const y = d.getFullYear();
+    const m = d.getMonth()+1;
+    const day = d.getDate();
+    const reiwa = y - 2018;
+    return `令和 ${reiwa} 年 ${m} 月 ${day} 日`;
+  }
+
+  // ====== 起動 ======
+  buildOptionUI();
+
+  document.getElementById('region').addEventListener('change', ()=>{ applyAndRender(); });
+  document.getElementById('regionOtherPrice').addEventListener('input', applyAndRender);
+
+  document.getElementById('toBase').addEventListener('input', applyAndRender);
+  document.getElementById('toHonorific').addEventListener('change', applyAndRender);
+  document.getElementById('tantouSelect').addEventListener('change', applyAndRender);
+
+  document.getElementById('delivery').addEventListener('input', applyAndRender);
+  document.getElementById('place').addEventListener('input', applyAndRender);
+  document.getElementById('payment').addEventListener('input', applyAndRender);
+  document.getElementById('valid').addEventListener('input', applyAndRender);
+  document.getElementById('notes').addEventListener('input', applyAndRender);
+
+  document.getElementById('issueDate').addEventListener('change', onIssueDateChange);
+  document.getElementById('baseQty').addEventListener('input', applyAndRender);
+
+  // 初期化（ブランク＋リセットボタン運用）
+  resetAll();
+</script>
+
+</body>
+</html>
