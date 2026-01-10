@@ -3,18 +3,17 @@
 <head>
 
   <link rel="icon" type="image/png" href="favicon-32.png">
-<link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="apple-touch-icon" href="icon-180.png">
 
-<!-- PWAっぽく使う場合（任意） -->
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
- 
+  <!-- PWAっぽく使う場合（任意） -->
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>精研 見積もり（彩）</title>
 
-  <!-- PDFダウンロード（任意）：ネット接続がある環境なら「PDF生成」ボタンで直接PDF保存できます -->
+  <!-- PDFダウンロード（任意） -->
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
@@ -147,15 +146,12 @@
       gap:10px;
       cursor:pointer;
       user-select:none;
-
-      /* === 変更：タップしやすさ＆背景色 === */
       padding:6px 8px;
       border-radius:10px;
       transition: background .15s ease, box-shadow .15s ease;
       background: var(--opt-off-bg);
     }
 
-    /* === 追加：ON/OFFで背景色を切り替え === */
     .opt-row.on{
       background: var(--opt-on-bg);
       box-shadow: 0 0 0 1px rgba(0,0,0,.06) inset;
@@ -207,27 +203,23 @@
       transform: translateX(20px);
     }
 
-    /* 文字色は既存維持（必要なら調整可） */
     .opt-row.off .opt-label{ color:#222; }
     .opt-row.on  .opt-label{ color:#111; }
 
     .neg{ color:#b00000; }
     .neg-input{ color:#b00000; }
 
-    /* スマホ対応 */
     @media (max-width: 980px){
       .grid{ grid-template-columns: 1fr; }
       .toolbar{ gap:6px; }
     }
 
-    /* ===== 印刷：見積書エリアだけ表示 ===== */
     @media print{
       body{ margin:0; background:#fff; }
       .no-print{ display:none !important; }
       .print-area{ margin:0; padding:0; }
     }
 
-    /* ===== 見積書（A4） ===== */
     .print-area{
       max-width: 210mm;
       margin: 0 auto;
@@ -280,7 +272,6 @@
       min-width: 115mm;
     }
 
-    /* ===== 精研欄 ===== */
     .issuer{
       border: var(--thin) solid var(--border);
       padding: 3mm 3mm 3mm 2mm;
@@ -591,7 +582,7 @@
   <div class="print-area">
     <div class="paper" id="paper">
       <div class="header">
-        <div class="no" id="outNo">No.SAI----</div>
+        <div class="no" id="outNo">No.--SAI----------</div>
         <div class="title">御 見 積 書</div>
         <div class="date" id="outDate">令和 -- 年 -- 月 -- 日</div>
       </div>
@@ -666,6 +657,61 @@
   </div>
 
 <script>
+  // =========================================================
+  // 見積番号：担当者イニシャル - 機種 - YYYYMMDD-HHMMSS
+  // 例）DH-SAI-20260110-093012
+  // =========================================================
+  const MACHINE_CODE = 'SAI';
+
+  // 担当者 → イニシャル（運用で固定推奨）
+  const TANTOU_CODE_MAP = {
+    '樋口大': 'DH',
+    '巽隆充': 'TT',
+    '三谷剛史': 'TM',
+    '山崎迅人': 'HY',      // 必要なら JY 等に変更してください
+    '與那城昭彦': 'AY',
+    '八田雅隆': 'MH'
+  };
+
+  // 見積番号を手動編集したら、以後は担当者変更で上書きしない
+  let quoteNoManuallyEdited = false;
+
+  function pad2(n){ return String(n).padStart(2,'0'); }
+
+  function yyyymmddNow(d){
+    return `${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}`;
+  }
+  function hhmmssNow(d){
+    return `${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}`;
+  }
+
+  function getTantouCode(){
+    const name = document.getElementById('tantouSelect').value || '';
+    return TANTOU_CODE_MAP[name] || '--';
+  }
+
+  function generateQuoteNoNow(){
+    const d = new Date();
+    const tantou = getTantouCode();
+    return `${tantou}-${MACHINE_CODE}-${yyyymmddNow(d)}-${hhmmssNow(d)}`;
+  }
+
+  function regenQuoteNo(){
+    const q = document.getElementById('quoteNo');
+    q.value = generateQuoteNoNow();
+    quoteNoManuallyEdited = false; // 再生成したら「自動」に戻す
+    applyAndRender();
+  }
+
+  // 担当者変更時：見積番号が未編集なら自動更新
+  function onTantouChange(){
+    const q = document.getElementById('quoteNo');
+    if(!quoteNoManuallyEdited){
+      q.value = generateQuoteNoNow();
+    }
+    applyAndRender();
+  }
+
   // ====== データ（彩専用） ======
   const BASE_ITEM = {
     name: 'タジマ1頭式8色刺繍機「TAJIMA彩」',
@@ -737,7 +783,6 @@
     const h3 = document.createElement('div'); h3.className='muted'; h3.textContent='数量';
     wrap.appendChild(h1); wrap.appendChild(h2); wrap.appendChild(h3);
 
-    // 共通：行タップで切替（スイッチ自体の操作は邪魔しない）
     const attachRowToggle = (rowEl, checkboxEl, qtyEl)=>{
       const sync = ()=>{
         rowEl.classList.toggle('on', checkboxEl.checked);
@@ -752,7 +797,6 @@
       });
 
       rowEl.addEventListener('click', (e)=>{
-        // スイッチ/入力を直接触った場合は通常挙動に任せる
         if(e.target.closest('input') || e.target.closest('label.switch') || e.target.closest('.slider')) return;
         checkboxEl.checked = !checkboxEl.checked;
         checkboxEl.dispatchEvent(new Event('change', { bubbles:true }));
@@ -788,7 +832,6 @@
       const qty = right.querySelector(`#qty_${opt.id}`);
 
       attachRowToggle(row, cb, qty);
-
       qty.addEventListener('input', applyAndRender);
     });
 
@@ -858,34 +901,6 @@
       applyAndRender();
     });
     oqty.addEventListener('input', applyAndRender);
-  }
-
-  // ====== 採番（SAI-YYYYMMDD-HHMMSS-XXXX） ======
-  function pad2(n){ return String(n).padStart(2,'0'); }
-  function pad4(n){ return String(n).padStart(4,'0'); }
-
-  function yyyymmddNow(d){
-    return `${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}`;
-  }
-  function hhmmssNow(d){
-    return `${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}`;
-  }
-  function rand4(){
-    return Math.floor(Math.random()* (36**4)).toString(36).toUpperCase().padStart(4,'0');
-  }
-
-  function generateQuoteNoNow(){
-    const d = new Date();
-    return `SAI-${yyyymmddNow(d)}-${hhmmssNow(d)}-${rand4()}`;
-  }
-
-  function regenQuoteNo(){
-    document.getElementById('quoteNo').value = generateQuoteNoNow();
-    applyAndRender();
-  }
-
-  function onIssueDateChange(){
-    applyAndRender();
   }
 
   function updateOptionSummary(){
@@ -969,12 +984,16 @@
     return `${base}　${honor}`;
   }
 
+  function onIssueDateChange(){
+    applyAndRender();
+  }
+
   function applyAndRender(){
     const region = document.getElementById('region').value;
     const other = document.getElementById('regionOtherPrice');
     other.disabled = region !== 'other';
 
-    const quoteNo = (document.getElementById('quoteNo').value || '').trim() || 'SAI--------';
+    const quoteNo = (document.getElementById('quoteNo').value || '').trim() || `--${MACHINE_CODE}----------`;
     const issueDate = document.getElementById('issueDate').value;
 
     const delivery = document.getElementById('delivery').value.trim() || '受注後 約3カ月';
@@ -1054,11 +1073,14 @@
   function resetAll(){
     const today = new Date();
     document.getElementById('issueDate').valueAsDate = today;
-    document.getElementById('quoteNo').value = generateQuoteNoNow();
 
     document.getElementById('toBase').value = '';
     document.getElementById('toHonorific').value = '御中';
     document.getElementById('tantouSelect').value = '';
+
+    // 初期化直後は「自動」扱いにする
+    quoteNoManuallyEdited = false;
+    document.getElementById('quoteNo').value = generateQuoteNoNow();
 
     document.getElementById('delivery').value = '受注後 約3カ月';
     document.getElementById('place').value = '御社ご指定場所';
@@ -1145,14 +1167,18 @@
     return `令和 ${reiwa} 年 ${m} 月 ${day} 日`;
   }
 
+  // 初期UI生成
   buildOptionUI();
 
+  // イベント
   document.getElementById('region').addEventListener('change', ()=>{ applyAndRender(); });
   document.getElementById('regionOtherPrice').addEventListener('input', applyAndRender);
 
   document.getElementById('toBase').addEventListener('input', applyAndRender);
   document.getElementById('toHonorific').addEventListener('change', applyAndRender);
-  document.getElementById('tantouSelect').addEventListener('change', applyAndRender);
+
+  // 担当者変更で（未編集なら）採番更新
+  document.getElementById('tantouSelect').addEventListener('change', onTantouChange);
 
   document.getElementById('delivery').addEventListener('input', applyAndRender);
   document.getElementById('place').addEventListener('input', applyAndRender);
@@ -1163,6 +1189,13 @@
   document.getElementById('issueDate').addEventListener('change', onIssueDateChange);
   document.getElementById('baseQty').addEventListener('input', applyAndRender);
 
+  // 見積番号を手で触ったら「手動編集」扱いにする（以後、担当者変更で上書きしない）
+  document.getElementById('quoteNo').addEventListener('input', ()=>{
+    quoteNoManuallyEdited = true;
+    applyAndRender();
+  });
+
+  // 初期化
   resetAll();
 </script>
 
