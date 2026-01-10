@@ -438,16 +438,17 @@
         <div class="app-sub">彩専用 見積書（スマホ/タブレット運用を想定）</div>
       </div>
       <div class="muted" style="text-align:right">
-        目的：作成 → PDF化 → 送信
+        目的：作成 → PDF保存 → 送信
       </div>
     </div>
 
+    <!-- ====== ここが改修点：ヘッダーのボタン ====== -->
     <div class="toolbar">
-      <button class="btn primary" onclick="window.print()">印刷 / PDF保存（推奨）</button>
-      <button class="btn" onclick="downloadPDF()">PDF生成（ダウンロード）</button>
+      <button class="btn primary" onclick="savePDF()">保存</button>
+      <button class="btn" onclick="window.print()">印刷</button>
       <button class="btn" onclick="resetAll()">全入力リセット</button>
       <button class="btn" onclick="regenQuoteNo()">見積番号を再生成</button>
-      <span class="muted">※「PDF生成」は端末/ブラウザにより品質差があります。提出用途は「印刷/PDF保存」を推奨。</span>
+      <span class="muted">※ PC（Edge/Chrome）は保存先フォルダ選択が出ます。iPhone等はダウンロード保存にフォールバックします。</span>
     </div>
 
     <div class="grid">
@@ -568,11 +569,11 @@
     </div>
 
     <div class="card">
-      <div class="opt-head">スマホ／タブレットで「PDF化 → 送信」する手順（現実的な運用）</div>
+      <div class="opt-head">スマホ／タブレットで「PDF保存 → 送信」する手順（現実的な運用）</div>
       <div class="muted">
-        1) まず「印刷 / PDF保存」を押す（これが一番きれいに出ます）<br/>
-        2) iPhone/iPad：プレビュー画面で共有ボタン →「ファイルに保存」または「メール/LINE等へ送信」<br/>
-        3) Android：印刷先を「PDFに保存」→ 共有<br/>
+        1) PC：上の「保存」を押す（保存先フォルダを選べます）<br/>
+        2) iPhone/iPad：保存先選択が出ない場合は「印刷」→ プレビュー → 共有 →「ファイルに保存」<br/>
+        3) Android：端末/ブラウザにより「保存」または「印刷→PDF保存」を利用<br/>
         ※ ブラウザがSafari/Chromeでも概ね同じです。
       </div>
     </div>
@@ -1040,13 +1041,19 @@
       tdAmt.className='c-amt';
 
       if(typeof li.unitPrice === 'number'){
-        tdUnit.textContent = yen(li.unitPrice);
-        const qty = (typeof li.qty === 'number') ? li.qty : 1;
-        const amt = li.unitPrice * qty;
-        tdAmt.textContent = yen(amt);
-        if(li.unitPrice < 0) tdUnit.classList.add('neg');
-        if(amt < 0) tdAmt.classList.add('neg');
-        subtotal += amt;
+        // other（要相談）がnullのときは空欄
+        if(li.unitPrice === null){
+          tdUnit.textContent = '';
+          tdAmt.textContent = '';
+        }else{
+          tdUnit.textContent = yen(li.unitPrice);
+          const qty = (typeof li.qty === 'number') ? li.qty : 1;
+          const amt = li.unitPrice * qty;
+          tdAmt.textContent = yen(amt);
+          if(li.unitPrice < 0) tdUnit.classList.add('neg');
+          if(amt < 0) tdAmt.classList.add('neg');
+          subtotal += amt;
+        }
       }else{
         tdUnit.textContent = '';
         tdAmt.textContent = '';
@@ -1114,9 +1121,83 @@
     applyAndRender();
   }
 
+  // =========================================================
+  // 追加：保存（ユーザーが保存先フォルダを選べる）
+  // - 対応：window.showSaveFilePicker（Edge/Chrome系）
+  // - 非対応：従来どおりダウンロード保存にフォールバック
+  // =========================================================
+  async function savePDF(){
+    if(!window.html2canvas || !window.jspdf){
+      alert('PDF保存にはネット接続が必要です。\nオフライン時は「印刷」→ PDF保存（ブラウザ機能）をご利用ください。');
+      return;
+    }
+    applyAndRender();
+
+    // PDF生成（downloadPDFと同等）
+    const el = document.getElementById('paper');
+    const canvas = await window.html2canvas(el, { scale: 2, useCORS: true });
+    const imgData = canvas.toDataURL('image/png');
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    const pageW = 210;
+    const pageH = 297;
+
+    const imgW = pageW;
+    const imgH = canvas.height * (imgW / canvas.width);
+
+    if(imgH <= pageH){
+      pdf.addImage(imgData, 'PNG', 0, 0, imgW, imgH);
+    }else{
+      let y = 0;
+      let remaining = imgH;
+      while(remaining > 0){
+        pdf.addImage(imgData, 'PNG', 0, -y, imgW, imgH);
+        remaining -= pageH;
+        y += pageH;
+        if(remaining > 0) pdf.addPage();
+      }
+    }
+
+    // ファイル名：見積番号＋宛名（安全化）
+    const qn = (document.getElementById('quoteNo').value || '').trim() || `--${MACHINE_CODE}----------`;
+    const toBase = (document.getElementById('toBase').value || '').trim();
+    const safeTo = (toBase ? toBase : '宛名未入力')
+      .replace(/[\\/:*?"<>|]/g, '_')
+      .slice(0, 24);
+    const filename = `${qn}_${safeTo}.pdf`;
+
+    // 保存先選択（対応ブラウザ）
+    try{
+      if(window.showSaveFilePicker){
+        const handle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{
+            description: 'PDF',
+            accept: { 'application/pdf': ['.pdf'] }
+          }]
+        });
+        const writable = await handle.createWritable();
+        const blob = pdf.output('blob');
+        await writable.write(blob);
+        await writable.close();
+        return;
+      }
+    }catch(err){
+      // キャンセルなら静かに終了
+      if(err && err.name === 'AbortError') return;
+      console.error(err);
+    }
+
+    // 非対応：ダウンロード保存
+    pdf.save(filename);
+  }
+
+  // （残す場合）従来のPDF生成：手元用途など
   async function downloadPDF(){
     if(!window.html2canvas || !window.jspdf){
-      alert('PDF生成（ダウンロード）はネット接続が必要です。\n「印刷 / PDF保存（推奨）」をご利用ください。');
+      alert('PDF生成（ダウンロード）はネット接続が必要です。\n「印刷」または「保存」をご利用ください。');
       return;
     }
     applyAndRender();
