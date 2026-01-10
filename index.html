@@ -445,12 +445,13 @@
       </div>
     </div>
 
+    <!-- ★ここだけ仕様変更：保存／印刷／全入力リセット／見積番号を再生成 -->
     <div class="toolbar">
-      <button class="btn primary" onclick="window.print()">印刷 / PDF保存（推奨）</button>
-      <button class="btn" onclick="downloadPDF()">PDF生成（ダウンロード）</button>
+      <button class="btn primary" onclick="savePDF()">保存</button>
+      <button class="btn" onclick="printPage()">印刷</button>
       <button class="btn" onclick="resetAll()">全入力リセット</button>
       <button class="btn" onclick="regenQuoteNo()">見積番号を再生成</button>
-      <span class="muted"></span>
+      <span class="muted">※「保存」は印刷画面で「PDFに保存」を選び、任意フォルダに保存してください。</span>
     </div>
 
     <div class="grid">
@@ -603,7 +604,7 @@
     <div class="card">
       <div class="opt-head">スマホ／タブレットで「PDF化 → 送信」する手順（現実的な運用）</div>
       <div class="muted">
-        1) まず「印刷 / PDF保存」を押す（これが一番きれいに出ます）<br/>
+        1) まず「保存」を押す → 印刷画面で「PDFに保存」（これが一番きれいに出ます）<br/>
         2) iPhone/iPad：プレビュー画面で共有ボタン →「ファイルに保存」または「メール/LINE等へ送信」<br/>
         3) Android：印刷先を「PDFに保存」→ 共有<br/>
         ※ ブラウザがSafari/Chromeでも概ね同じです。
@@ -801,6 +802,60 @@
 
     if(zipDisp && addrLine) return `${zipDisp}\n${addrLine}`;
     return (zipDisp || addrLine || '御社ご指定場所');
+  }
+
+  // =========================================================
+  // ★追加：ヘッダーの「保存」「印刷」
+  // 保存：印刷ダイアログを開く（PDF保存前提）＋ title を一時的に見積番号入りへ
+  // 印刷：通常印刷
+  // =========================================================
+  function makeSafeFilePart(str){
+    return (str || '')
+      .replace(/\s+/g,' ')
+      .trim()
+      .replace(/[\\/:*?"<>|]/g,'-')
+      .slice(0, 50);
+  }
+
+  
+  function savePDF(){
+    applyAndRender();
+
+    const oldTitle = document.title;
+
+    // 日付は「発行日」が入っていればそれを優先（未入力なら今日）
+    const iso = document.getElementById('issueDate').value;
+    const dateForName = iso ? new Date(iso + 'T00:00:00') : new Date();
+    const dateStr = yyyymmddNow(dateForName);
+
+    // 「日時」用の時刻（秒まで）＝保存実行時の現在時刻
+    const now = new Date();
+    const timeStr = hhmmssNow(now);
+
+    const tantouCode = getTantouCode();
+
+    // ★保存時の既定ファイル名
+    // 担当者決定：担当者イニシャル-機種-日付
+    // 担当者未決定：-- -機種-日付-日時（秒まで）
+    let nameBase = '';
+    if(tantouCode && tantouCode !== '--'){
+      nameBase = `${tantouCode}-${MACHINE_CODE}-${dateStr}`;
+    }else{
+      nameBase = `---${MACHINE_CODE}-${dateStr}-${timeStr}`;
+    }
+
+    document.title = makeSafeFilePart(nameBase);
+
+    window.print();
+
+    // ダイアログ後に戻す（環境差があるため少し遅延）
+    setTimeout(()=>{ document.title = oldTitle; }, 900);
+  }
+
+
+  function printPage(){
+    applyAndRender();
+    window.print();
   }
 
   // ====== データ（彩専用） ======
@@ -1196,6 +1251,12 @@
       if(cb) cb.checked = false;
       const q = document.getElementById(`qty_${o.id}`);
       if(q){ q.value = 1; q.disabled = true; }
+      // ★修正:オプションのUI（opt-row）もリセット
+      const row = document.getElementById(`row_${o.id}`);
+      if(row){
+        row.classList.remove('on');
+        row.classList.add('off');
+      }
     });
 
     const ocb = document.getElementById('opt_other');
@@ -1208,13 +1269,19 @@
     if(oqty){ oqty.value = 1; oqty.disabled = true; }
     if(oname) oname.disabled = true;
     if(oprice) { oprice.disabled = true; oprice.classList.remove('neg-input'); }
+    
+    // ★修正：「その他」のUI（opt-row）もリセット
+    const rowOther = document.getElementById('row_other');
+    if(rowOther){
+      rowOther.classList.remove('on');
+      rowOther.classList.add('off');
+    }
 
     applyAndRender();
   }
-
   async function downloadPDF(){
     if(!window.html2canvas || !window.jspdf){
-      alert('PDF生成（ダウンロード）はネット接続が必要です。\n「印刷 / PDF保存（推奨）」をご利用ください。');
+      alert('PDF生成（ダウンロード）はネット接続が必要です。\n「保存」をご利用ください。');
       return;
     }
     applyAndRender();
@@ -1306,6 +1373,7 @@
 
 </body>
 </html>
+
 
 
 
