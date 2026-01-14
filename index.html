@@ -447,7 +447,7 @@
 
     <!-- ★ここだけ仕様変更：保存／印刷／全入力リセット／見積番号を再生成 -->
     <div class="toolbar">
-      <button class="btn primary" onclick="savePDF()">保存</button>
+      <button class="btn primary" onclick="downloadPDF()">保存</button>
       <button class="btn" onclick="printPage()">印刷</button>
       <button class="btn" onclick="resetAll()">全入力リセット</button>
       <button class="btn" onclick="regenQuoteNo()">見積番号を再生成</button>
@@ -817,34 +817,30 @@
       .slice(0, 50);
   }
 
+  // ★追加：保存ファイル名（見積番号＋日時＋顧客名）
+  function getCustomerNameForFile(){
+    const base = (document.getElementById('toBase').value || '').trim();
+    if(!base) return '';
+    // 末尾の敬称が混ざっている場合に備えて除去
+    return base.replace(/(御中|様)\s*$/,'').trim();
+  }
+
+  function buildSaveFileName(){
+    const quote = (document.getElementById('quoteNo').value || '').trim() || `--${MACHINE_CODE}----------`;
+    const customer = getCustomerNameForFile();
+    const parts = [quote, customer].filter(p => (p || '').trim() !== '');
+    return makeSafeFilePart(parts.join('_'));
+  }
+
+
   
   function savePDF(){
     applyAndRender();
 
     const oldTitle = document.title;
 
-    // 日付は「発行日」が入っていればそれを優先（未入力なら今日）
-    const iso = document.getElementById('issueDate').value;
-    const dateForName = iso ? new Date(iso + 'T00:00:00') : new Date();
-    const dateStr = yyyymmddNow(dateForName);
-
-    // 「日時」用の時刻（秒まで）＝保存実行時の現在時刻
-    const now = new Date();
-    const timeStr = hhmmssNow(now);
-
-    const tantouCode = getTantouCode();
-
-    // ★保存時の既定ファイル名
-    // 担当者決定：担当者イニシャル-機種-日付
-    // 担当者未決定：-- -機種-日付-日時（秒まで）
-    let nameBase = '';
-    if(tantouCode && tantouCode !== '--'){
-      nameBase = `${tantouCode}-${MACHINE_CODE}-${dateStr}`;
-    }else{
-      nameBase = `---${MACHINE_CODE}-${dateStr}-${timeStr}`;
-    }
-
-    document.title = makeSafeFilePart(nameBase);
+    // 印刷（PDF保存）時の既定ファイル名は title に反映（環境依存）
+    document.title = buildSaveFileName();
 
     window.print();
 
@@ -1312,7 +1308,7 @@
       }
     }
 
-    pdf.save('タジマ彩見積書.pdf');
+    pdf.save(buildSaveFileName() + '.pdf');
   }
 
   function yen(n){
